@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-config
+data:
+  logstash.conf: |
+    input {
+      kafka {
+        codec => json
+        bootstrap_servers => "kafka:9092"
+        topics => ["first_topic"]
+      }
+    }
+
+    output {
+      elasticsearch {
+        hosts => ["${ES_HOST}:${ES_PORT}"]
+        index => "reviews"
+      }
+      stdout {
+        codec => rubydebug
+      }
+    }
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: logstash-app
+      zone: logstash
+      tier: backend
+  template:
+    metadata:
+      labels:
+        component: logstash-app
+        zone: logstash
+        tier: backend
+    spec:
+      hostname: logstash
+      containers:
+      - name: logstash
+        image: venkatsaijanumpally/logstash:latest
+        ports:
+        - containerPort: 5044
+        - containerPort: 8080
+        volumeMounts:
+        - name: logstash-volume
+          mountPath: /usr/share/logstash/pipeline/logstash.conf
+          subPath: logstash.conf
+        env:
+        - name: ELASTICSEARCH_HOST
+          value: elasticsearch-service.default.svc.cluster.local
+        - name: ELASTICSEARCH_PORT
+          value: "9200"
+        - name: ES_HOST
+          value: elasticsearch-service.default.svc.cluster.local
+        - name: ES_PORT
+          value: "9200"
+        resources: 
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      # - name: pipeline-volume
+      #   hostPath:
+      #     path: Logstash/pipeline
+      #     type: Directory
+      - name: logstash-volume
+        configMap:
+          name: logstash-config
+      initContainers:
+      - name: wait-for-elasticsearch-busybox
+        image: busybox:1.32
+        #command: ['sh', '-c', 'until nc -zv elasticsearch-service.default.svc.cluster.local 9200; do echo "Waiting for Elasticsearch"; sleep 5; done;']
+        command: ["sh", "-c", "until nc -z elasticsearch-service 9200 > /dev/null; do echo Waiting for master.; sleep 2; done;"]
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: logstash-service
+spec:
+  selector:
+    component: logstash-app
+  ports:
+    - name: port1
+      protocol: 'TCP'
+      port: 5044
+      targetPort: 5044
+    - name: port2
+      protocol: 'TCP'
+      port: 8080
+      targetPort: 8080
+  type: LoadBalancer

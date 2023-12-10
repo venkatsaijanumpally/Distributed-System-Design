@@ -1,0 +1,125 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: elasticsearch-app
+      tier: backend
+      zone: elasticsearch
+  template:
+    metadata:
+      labels:
+        component: elasticsearch-app
+        tier: backend
+        zone: elasticsearch
+    spec:
+      hostname: elasticsearch
+      containers:
+        - name: elasticsearch
+          image: docker.elastic.co/elasticsearch/elasticsearch:7.10.1
+          ports:
+            - containerPort: 9200
+            - containerPort: 9300
+          env:
+            - name: discovery.type
+              value: single-node
+            - name: ES_JAVA_OPTS
+              value: "-Xmx512m -Xms512m"
+            - name: node.name
+              value: es01
+            - name: cluster.name
+              value: elasticsearch
+          resources:
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-service
+spec:
+  selector:
+    component: elasticsearch-app
+  ports:
+    - name: elasticport1
+      protocol: 'TCP'
+      port: 9200
+      targetPort: 9200
+    - name: elasticport2
+      protocol: 'TCP'
+      port: 9300
+      targetPort: 9300
+  type: LoadBalancer
+
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: kibana-app
+      tier: backend
+      zone: elasticsearch
+  template:
+    metadata:
+      labels:
+        component: kibana-app
+        tier: backend
+        zone: elasticsearch
+    spec:
+      hostname: kibana
+      # initContainers:
+      # - name: wait-for-elasticsearch
+      #   image: busybox:1.32
+      #   command: ['sh', '-c', 'until nc -zv elasticsearch-service.default.svc.cluster.local 9200; do echo "Waiting for Elasticsearch"; sleep 5; done;']
+      containers:
+        - name: kibana
+          image: docker.elastic.co/kibana/kibana:7.10.1
+          ports:
+            - containerPort: 5601
+              name: http
+            - containerPort: 9600
+              name: monitoring
+          env:
+            - name: SERVERNAME
+              value: "kibana"
+            - name: ELASTICSEARCH_HOSTS
+              value: "http://elasticsearch-service.default.svc.cluster.local:9200"
+            - name: ES_JAVA_OPTS
+              value: "-Xmx512m -Xms512m"
+          resources:
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana-service
+spec:
+  selector:
+    component: kibana-app
+  ports:
+    - name: http
+      protocol: 'TCP'
+      port: 5601
+      targetPort: 5601
+    - name: monitoring
+      protocol: 'TCP'
+      port: 9600
+      targetPort: 9600
+  type: LoadBalancer

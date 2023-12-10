@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: producer-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: producer-app
+      tier: backend
+      zone: producer
+  template:
+    metadata:
+      labels:
+        component: producer-app
+        tier: backend
+        zone: producer
+    spec:
+      hostname: producer
+      containers:
+        - name: producer
+          #imagePullPolicy: Always
+          image: venkatsaijanumpally/producer-python:3.9.11
+          volumeMounts:
+            # - name: ingestdata-volume
+            #   mountPath: /opt/Ingestdata
+            #   readOnly: true
+            - name: ingestdata-volume
+              mountPath: /opt/Ingestdata/part-01-test.json
+              subPath: part-01-test.json
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka"
+            - name: KAFKA_BOOTSTRAP_PORT
+              value: "9092"
+            - name: KAFKA_TOPIC
+              value: "first_topic"
+            - name: DATASET_FILE
+              value: "part-01-test"
+          resources: 
+            limits:
+              memory: "2Gi"
+              cpu: "500m"
+      volumes:
+      - name: ingestdata-volume
+        #hostPath:
+          # directory location on host
+          #path: "/Ingestdataa"
+          #path: "/host_mnt/c/documents/test"
+          #path: "/Producer/Ingestdata"
+          #path: /run/desktop/mnt/host/c/documents/test
+          #path: "/Ingestdataa"
+          # this field is optional
+          #type: DirectoryOrCreate
+        # persistentVolumeClaim:
+        #     claimName: hostpath-volume-claim
+        # persistentVolumeClaim:
+        #     claimName: local-files-pvcs
+        configMap:
+          name: test-file 

@@ -1,0 +1,31 @@
+#
+# PersistentVolume
+#
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: hostpath-volume
+spec:
+  storageClassName: hostpath
+  capacity:
+    storage: 3Gi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: /Producer/Ingestdata
+  persistentVolumeReclaimPolicy: Retain
+---
+#
+# PersistentVolumeClaim
+#
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hostpath-volume-claim
+spec:
+  storageClassName: hostpath
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 2Gi

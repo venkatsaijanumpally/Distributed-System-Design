@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-deployment
+spec:
+  replicas: 1 
+  selector:
+    matchLabels:
+      component: kafka-app
+  template:
+    metadata:
+      labels:
+        component: kafka-app
+        zone: kafka
+        tier: backend
+    spec:
+      hostname: kafka
+      containers:
+      - name: kafka
+        image: venkatsaijanumpally/kafka-centos:2.12-3.6.0
+        imagePullPolicy: Always
+        ports:
+          - containerPort: 9093
+          - containerPort: 9092
+        volumeMounts:
+          - name: kafka-config-server
+            mountPath: /opt/kafka_2.12-3.6.0/config/server.properties
+            subPath: server.properties
+          - name: kafka-config-zookeeper
+            mountPath: /opt/kafka_2.12-3.6.0/config/zookeeper.properties
+            subPath: zookeeper.properties
+          # - name: kafka-entryscript
+          #   mountPath: /opt/kafka_2.12-3.6.0/entryscript.sh
+        resources: 
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: kafka-config-server
+        configMap:
+          name: service-config
+      - name: kafka-config-zookeeper
+        configMap:
+          name: zookeeper-config
+      # - name: kafka-config-server
+      #   hostPath:
+      #     path: /Kafka/config/zookeeper.properties
+      # - name: kafka-entryscript
+      #   hostPath:
+      #     path: /Kafka/entryscript.sh
