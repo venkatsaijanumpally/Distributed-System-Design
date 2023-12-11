@@ -4,6 +4,7 @@ metadata:
   name: service-config
 data:
   server.properties: |
+    advertised.listeners=PLAINTEXT://kafka-service.default.svc.cluster.local:9092
     broker.id=0
     num.network.threads=3
     num.io.threads=8
@@ -48,6 +49,8 @@ metadata:
 spec:
   selector:
     component: zookeeper-app
+    zone: kafka
+    tier: backend
   type: LoadBalancer
   ports:
   - protocol: 'TCP'
@@ -89,7 +92,7 @@ spec:
             value: "2000"
         resources:
           limits:
-            memory: "128Mi"
+            memory: "300Mi"
             cpu: "250m"
         ports:
           - containerPort: 2181
@@ -158,8 +161,8 @@ spec:
           #   mountPath: /opt/kafka_2.12-3.6.0/entryscript.sh
         resources: 
           limits:
-            memory: "512Mi"
-            cpu: "500m"
+            memory: "1Gi"
+            cpu: "400m"
       volumes:
       - name: kafka-config-server
         configMap:
@@ -183,6 +186,8 @@ metadata:
 spec:
   selector:
     component: kafka-app
+    tier: backend
+    zone: kafka
   ports:
     - protocol: 'TCP'
       port: 9092

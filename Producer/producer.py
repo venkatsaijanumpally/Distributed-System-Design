@@ -4,11 +4,11 @@ import logging
 import os
 
 # Kafka server configuration
-kafka_bootstrap_servers = os.environ.get('KAFKA_BOOTSTRAP_SERVER', 'kafka')
-kafka_bootstrap_port = os.environ.get('KAFKA_BOOTSTRAP_PORT', '9092')
+kafka_bootstrap_servers = os.environ.get('KAFKA_BOOTSTRAP_SERVER')
+kafka_bootstrap_port = os.environ.get('KAFKA_BOOTSTRAP_PORT')
 
 # Kafka topic to send messages to
-kafka_topic = os.environ.get('KAFKA_TOPIC', 'first_topic')
+kafka_topic = os.environ.get('KAFKA_TOPIC')
 
 producer_config = {
     'bootstrap.servers': f'{kafka_bootstrap_servers}:{kafka_bootstrap_port}',

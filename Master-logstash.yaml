@@ -7,7 +7,7 @@ data:
     input {
       kafka {
         codec => json
-        bootstrap_servers => "kafka:9092"
+        bootstrap_servers => "kafka-service.default.svc.cluster.local:9092"
         topics => ["first_topic"]
       }
     }
@@ -64,7 +64,7 @@ spec:
           value: "9200"
         resources: 
           limits:
-            memory: "1Gi"
+            memory: "500Mi"
             cpu: "500m"
       volumes:
       # - name: pipeline-volume
@@ -89,6 +89,8 @@ metadata:
 spec:
   selector:
     component: logstash-app
+    zone: logstash
+    tier: backend
   ports:
     - name: port1
       protocol: 'TCP'

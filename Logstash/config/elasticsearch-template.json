@@ -1,0 +1,22 @@
+{
+    "index_patterns": ["reviews*"],
+    "mappings": {
+      "properties": {
+        "review_id": { "type": "keyword" },
+        "reviewer": { "type": "keyword" },
+        "movie": { "type": "text" },
+        "rating": { "type": "float" },
+        "review_summary": { "type": "text" },
+        "review_date": { "type": "date" },
+        "spoiler_tag": { "type": "integer" },
+        "review_detail": { "type": "text" },
+        "helpful": {
+          "type": "nested",
+          "properties": {
+            "item": { "type": "keyword" }
+          }
+        }
+      }
+    }
+  }
+  

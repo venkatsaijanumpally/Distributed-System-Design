@@ -19,18 +19,17 @@ spec:
       hostname: producer
       containers:
         - name: producer
-          #imagePullPolicy: Always
+          imagePullPolicy: Always
           image: venkatsaijanumpally/producer-python:3.9.11
           volumeMounts:
             # - name: ingestdata-volume
             #   mountPath: /opt/Ingestdata
             #   readOnly: true
             - name: ingestdata-volume
-              mountPath: /opt/Ingestdata/part-01-test.json
-              subPath: part-01-test.json
+              mountPath: /opt/Ingestdata
           env:
-            - name: KAFKA_BOOTSTRAP_SERVERS
-              value: "kafka"
+            - name: KAFKA_BOOTSTRAP_SERVER
+              value: "kafka-service.default.svc.cluster.local"
             - name: KAFKA_BOOTSTRAP_PORT
               value: "9092"
             - name: KAFKA_TOPIC
@@ -39,11 +38,13 @@ spec:
               value: "part-01-test"
           resources: 
             limits:
-              memory: "2Gi"
-              cpu: "500m"
+              memory: "300Mi"
+              cpu: "300m"
       volumes:
       - name: ingestdata-volume
-        #hostPath:
+        hostPath:
+          path: "/Ingestdata"
+          type: Directory
           # directory location on host
           #path: "/Ingestdataa"
           #path: "/host_mnt/c/documents/test"
@@ -56,5 +57,5 @@ spec:
         #     claimName: hostpath-volume-claim
         # persistentVolumeClaim:
         #     claimName: local-files-pvcs
-        configMap:
-          name: test-file 
+        # configMap:
+        #   name: test-file 
