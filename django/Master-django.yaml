@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: django-app
+      zone: application
+      tier: backend
+  template:
+    metadata:
+      labels:
+        component: django-app
+        zone: application
+        tier: backend
+    spec:
+      hostname: django
+      containers:
+      - name: django
+        imagePullPolicy: Always
+        image: venkatsaijanumpally/django:3.8
+        ports:
+        - containerPort: 8000
+        env:
+        - name: ELASTICSEARCH_HOST
+          value: elasticsearch-service.default.svc.cluster.local
+        - name: ELASTICSEARCH_PORT
+          value: "9200"
+        - name: ELASTICSEARCH_INDEX
+          value: "reviews"
+        resources:
+          limits:
+            memory: "500Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: django-service
+spec:
+  selector:
+    component: django-app
+    zone: application
+    tier: backend
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: LoadBalancer

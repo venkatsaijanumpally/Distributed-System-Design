@@ -64,7 +64,7 @@ spec:
           value: "9200"
         resources: 
           limits:
-            memory: "500Mi"
+            memory: "800Mi"
             cpu: "500m"
       volumes:
       # - name: pipeline-volume
