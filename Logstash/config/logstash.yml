@@ -1,4 +1,4 @@
 http.host: "0.0.0.0"
 
 # Set log level to debug
-log.level: debug
+#log.level: debug

@@ -1,0 +1,541 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: django-app
+      zone: application
+      tier: backend
+  template:
+    metadata:
+      labels:
+        component: django-app
+        zone: application
+        tier: backend
+    spec:
+      hostname: django
+      initContainers:
+          - name: wait-for-elasticsearch
+            image: busybox:1.32
+            command: ['sh', '-c', 'until nc -z elasticsearch-service 9200 > /dev/null; do echo "Waiting for Elasticsearch"; sleep 5; done;']
+      containers:
+      - name: django
+        imagePullPolicy: Always
+        image: venkatsaijanumpally/django:3.8
+        ports:
+        - containerPort: 8000
+        env:
+        - name: ELASTICSEARCH_HOST
+          value: elasticsearch-service.default.svc.cluster.local
+        - name: ELASTICSEARCH_PORT
+          value: "9200"
+        - name: ELASTICSEARCH_INDEX
+          value: "reviews"
+        resources:
+          limits:
+            memory: "500Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: django-service
+spec:
+  selector:
+    component: django-app
+    zone: application
+    tier: backend
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: LoadBalancer
+
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: elasticsearch-app
+      tier: backend
+      zone: elasticsearch
+  template:
+    metadata:
+      labels:
+        component: elasticsearch-app
+        tier: backend
+        zone: elasticsearch
+    spec:
+      hostname: elasticsearch
+      containers:
+        - name: elasticsearch
+          image: docker.elastic.co/elasticsearch/elasticsearch:7.10.1
+          ports:
+            - containerPort: 9200
+            - containerPort: 9300
+          env:
+            - name: discovery.type
+              value: single-node
+            - name: ES_JAVA_OPTS
+              value: "-Xmx512m -Xms512m"
+            - name: node.name
+              value: es01
+            - name: cluster.name
+              value: elasticsearch
+          resources:
+            limits:
+              memory: "1Gi"
+              cpu: "400m"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-service
+spec:
+  selector:
+    component: elasticsearch-app
+  ports:
+    - name: elasticport1
+      protocol: 'TCP'
+      port: 9200
+      targetPort: 9200
+    - name: elasticport2
+      protocol: 'TCP'
+      port: 9300
+      targetPort: 9300
+  type: LoadBalancer
+
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: kibana-app
+      tier: backend
+      zone: elasticsearch
+  template:
+    metadata:
+      labels:
+        component: kibana-app
+        tier: backend
+        zone: elasticsearch
+    spec:
+      hostname: kibana
+      initContainers:
+      - name: wait-for-elasticsearch
+        image: busybox:1.32
+        command: ['sh', '-c', 'until nc -z elasticsearch-service 9200 > /dev/null; do echo "Waiting for Elasticsearch"; sleep 5; done;']
+      containers:
+        - name: kibana
+          image: docker.elastic.co/kibana/kibana:7.10.1
+          ports:
+            - containerPort: 5601
+              name: http
+            - containerPort: 9600
+              name: monitoring
+          env:
+            - name: SERVERNAME
+              value: "kibana"
+            - name: ELASTICSEARCH_HOSTS
+              value: "http://elasticsearch-service.default.svc.cluster.local:9200"
+            - name: ES_JAVA_OPTS
+              value: "-Xmx512m -Xms512m"
+          resources:
+            limits:
+              memory: "512Mi"
+              cpu: "400m"
+
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana-service
+spec:
+  selector:
+    component: kibana-app
+  ports:
+    - name: http
+      protocol: 'TCP'
+      port: 5601
+      targetPort: 5601
+    - name: monitoring
+      protocol: 'TCP'
+      port: 9600
+      targetPort: 9600
+  type: LoadBalancer
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: service-config
+data:
+  server.properties: |
+    advertised.listeners=PLAINTEXT://kafka-service.default.svc.cluster.local:9092
+    broker.id=0
+    num.network.threads=3
+    num.io.threads=8
+    socket.send.buffer.bytes=102400
+    socket.receive.buffer.bytes=102400
+    socket.request.max.bytes=104857600
+    log.dirs=/opt/kafka_2.12-3.6.0/data/kafka
+    num.partitions=1
+    num.recovery.threads.per.data.dir=1
+    offsets.topic.replication.factor=1
+    transaction.state.log.replication.factor=1
+    transaction.state.log.min.isr=1
+    log.flush.interval.ms=1000
+    log.retention.hours=168
+    log.retention.bytes=1073741824
+    log.segment.bytes=1073741824
+    log.retention.check.interval.ms=300000
+    zookeeper.connect=zookeeper-service.default.svc.cluster.local:2181
+    zookeeper.connection.timeout.ms=18000
+    group.initial.rebalance.delay.ms=0
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zookeeper-config
+data:
+  zookeeper.properties: |
+    dataDir=/opt/kafka_2.12-3.6.0/data/zookeeper
+    clientPort=2181
+    maxClientCnxns=0
+    admin.enableServer=false
+    # admin.serverPort=8080
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper-service
+spec:
+  selector:
+    component: zookeeper-app
+    zone: kafka
+    tier: backend
+  type: LoadBalancer
+  ports:
+  - protocol: 'TCP'
+    port: 2181
+    targetPort: 2181
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zookeeper-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: zookeeper-app
+      zone: kafka
+      tier: backend
+  template:
+    metadata:
+      labels:
+        component: zookeeper-app
+        zone: kafka
+        tier: backend
+    spec:
+      hostname: zookeeper
+      containers:
+      - name: zookeeper
+        image: confluentinc/cp-zookeeper:6.2.0
+        env:
+          - name: ZOOKEEPER_CLIENT_PORT
+            value: "2181"
+          - name: ZOOKEEPER_TICK_TIME
+            value: "2000"
+        resources:
+          limits:
+            memory: "300Mi"
+            cpu: "250m"
+        ports:
+          - containerPort: 2181
+        livenessProbe:
+          tcpSocket:
+            port: 2181
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 2181
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-deployment
+spec:
+  replicas: 1 
+  selector:
+    matchLabels:
+      component: kafka-app
+      tier: backend
+      zone: kafka
+  template:
+    metadata:
+      labels:
+        component: kafka-app
+        zone: kafka
+        tier: backend
+    spec:
+      hostname: kafka
+      initContainers:
+      - name: wait-for-zookeeper-busybox
+        image: busybox:1.32
+        command: ["sh", "-c", "until nc -z zookeeper-service 2181 > /dev/null; do echo Waiting for Zookeeper Service.; sleep 3; done;"]
+
+      containers:
+      - name: kafka
+        image: venkatsaijanumpally/kafka-centos:2.12-3.6.0
+        imagePullPolicy: Always
+        ports:
+          - containerPort: 9093
+          - containerPort: 9092
+        volumeMounts:
+          - name: kafka-config-server
+            mountPath: /opt/kafka_2.12-3.6.0/config/server.properties
+            subPath: server.properties
+          - name: kafka-config-zookeeper
+            mountPath: /opt/kafka_2.12-3.6.0/config/zookeeper.properties
+            subPath: zookeeper.properties
+        resources: 
+          limits:
+            memory: "1Gi"
+            cpu: "400m"
+      volumes:
+      - name: kafka-config-server
+        configMap:
+          name: service-config
+      - name: kafka-config-zookeeper
+        configMap:
+          name: zookeeper-config
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-service
+spec:
+  selector:
+    component: kafka-app
+    tier: backend
+    zone: kafka
+  ports:
+    - protocol: 'TCP'
+      port: 9092
+      targetPort: 9092
+  type: LoadBalancer
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-config
+data:
+  logstash.conf: |
+    input {
+      kafka {
+        codec => json
+        bootstrap_servers => "kafka-service.default.svc.cluster.local:9092"
+        topics => ["first_topic"]
+      }
+    }
+
+    output {
+      elasticsearch {
+        hosts => ["${ES_HOST}:${ES_PORT}"]
+        index => "reviews"
+      }
+      stdout {
+        codec => rubydebug
+      }
+    }
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-yml-config
+data:
+  logstash.yml: |
+    http.host: "0.0.0.0"
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: logstash-app
+      zone: logstash
+      tier: backend
+  template:
+    metadata:
+      labels:
+        component: logstash-app
+        zone: logstash
+        tier: backend
+    spec:
+      hostname: logstash
+      containers:
+      - name: logstash
+        imagePullPolicy: Always
+        image: venkatsaijanumpally/logstash:latest
+        ports:
+        - containerPort: 5044
+        - containerPort: 8080
+        - containerPort: 9600
+        volumeMounts:
+        - name: logstash-volume
+          mountPath: /usr/share/logstash/pipeline/logstash.conf
+          subPath: logstash.conf
+        - name: logstash-yml
+          mountPath: /usr/share/logstash/config/logstash.yml
+          subPath: logstash.yml
+        env:
+        - name: ELASTICSEARCH_HOST
+          value: elasticsearch-service.default.svc.cluster.local
+        - name: ELASTICSEARCH_PORT
+          value: "9200"
+        - name: ES_HOST
+          value: elasticsearch-service.default.svc.cluster.local
+        - name: ES_PORT
+          value: "9200"
+        resources: 
+          limits:
+            memory: "800Mi"
+            cpu: "500m"
+      volumes:
+      - name: logstash-volume
+        configMap:
+          name: logstash-config
+      - name: logstash-yml
+        configMap:
+          name: logstash-yml-config
+      initContainers:
+      - name: wait-for-elasticsearch-busybox
+        image: busybox:1.32
+        command: ["sh", "-c", "until nc -z elasticsearch-service 9200 > /dev/null; do echo Waiting for elastic search.; sleep 5; done;"]
+      - name: wait-for-kafka-busybox
+        image: busybox:1.32
+        command: ["sh", "-c", "until nc -z kafka-service 9092 > /dev/null; do echo Waiting for kafka.; sleep 5; done;"]
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: logstash-service
+spec:
+  selector:
+    component: logstash-app
+    zone: logstash
+    tier: backend
+  ports:
+    - name: port1
+      protocol: 'TCP'
+      port: 5044
+      targetPort: 5044
+    - name: port2
+      protocol: 'TCP'
+      port: 8080
+      targetPort: 8080
+    - name: port3
+      protocol: 'TCP'
+      port: 9600
+      targetPort: 9600
+  type: LoadBalancer
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: producer-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: producer-app
+      tier: backend
+      zone: producer
+  template:
+    metadata:
+      labels:
+        component: producer-app
+        tier: backend
+        zone: producer
+    spec:
+      hostname: producer
+      containers:
+        - name: producer
+          imagePullPolicy: Always
+          image: venkatsaijanumpally/producer-python:3.9.11
+          volumeMounts:
+            - name: ingestdata-volume
+              mountPath: /opt/Ingestdata
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVER
+              value: "kafka-service.default.svc.cluster.local"
+            - name: KAFKA_BOOTSTRAP_PORT
+              value: "9092"
+            - name: KAFKA_TOPIC
+              value: "first_topic"
+            - name: DATASET_FILE
+              value: "part-01-test"
+          resources: 
+            limits:
+              memory: "300Mi"
+              cpu: "300m"
+      volumes:
+      - name: ingestdata-volume
+        hostPath:
+          path: "/Ingestdata"
+          type: Directory
+      initContainers:
+      - name: wait-for-elasticsearch-busybox
+        image: busybox:1.32
+        command: ["sh", "-c", "until nc -z elasticsearch-service 9200 > /dev/null; do echo Waiting for elasticsearch.; sleep 2; done;"]
+      - name: wait-for-logstash-busybox
+        image: busybox:1.32
+        #command: ['sh', '-c', 'until nslookup logstash-service.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for logstash-service; sleep 2; done;']
+        command: ["sh", "-c", "until nc -z logstash-service 9600 > /dev/null; do echo Waiting for logstash.; sleep 2; done;"]

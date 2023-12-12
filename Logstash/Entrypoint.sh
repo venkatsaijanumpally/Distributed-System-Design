@@ -4,4 +4,4 @@
 python3 /usr/share/logstash/wait_for_elasticsearch.py
 
 # Start Logstash
-exec /usr/share/logstash/logstash/bin/logstash -f /usr/share/logstash/pipeline/logstash.conf
+exec /usr/share/logstash/logstash/bin/logstash -f /usr/share/logstash/pipeline/logstash.conf --path.settings /usr/share/logstash/config
