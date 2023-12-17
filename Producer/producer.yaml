@@ -35,7 +35,8 @@ spec:
             - name: KAFKA_TOPIC
               value: "first_topic"
             - name: DATASET_FILE
-              value: "part-01-test"
+              value: "part-01"
+              #value: "part-01-test"
           resources: 
             limits:
               memory: "300Mi"
