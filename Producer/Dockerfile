@@ -10,6 +10,7 @@ RUN git clone https://github.com/edenhill/librdkafka.git && cd librdkafka \
     && ./configure --prefix /usr/local \
     && make && make install
 RUN pip install confluent-kafka==2.2.0
+RUN pip install ijson
 
 WORKDIR /opt
 

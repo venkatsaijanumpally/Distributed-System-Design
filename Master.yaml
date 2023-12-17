@@ -1,6 +1,59 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: react-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: react-app
+      zone: application
+      tier: backend
+  template:
+    metadata:
+      labels:
+        component: react-app
+        zone: application
+        tier: backend
+    spec:
+      hostname: react
+      initContainers:
+          - name: wait-for-django
+            image: busybox:1.32
+            command: ['sh', '-c', 'until nc -z django-service 8000 > /dev/null; do echo "Waiting for django"; sleep 5; done;']
+      containers:
+      - name: react
+        imagePullPolicy: Always
+        image: venkatsaijanumpally/react:latest
+        ports:
+        - containerPort: 3000
+        resources:
+          limits:
+            memory: "400Mi"
+            cpu: "300m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: react-service
+spec:
+  selector:
+    component: react-app
+    zone: application
+    tier: backend
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+  type: LoadBalancer
+
+
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: django-deployment
 spec:
   replicas: 1
@@ -36,8 +89,8 @@ spec:
           value: "reviews"
         resources:
           limits:
-            memory: "500Mi"
-            cpu: "500m"
+            memory: "300Mi"
+            cpu: "200m"
 ---
 apiVersion: v1
 kind: Service
@@ -94,7 +147,7 @@ spec:
           resources:
             limits:
               memory: "1Gi"
-              cpu: "400m"
+              cpu: "600m"
 
 ---
 
@@ -380,9 +433,9 @@ data:
         hosts => ["${ES_HOST}:${ES_PORT}"]
         index => "reviews"
       }
-      stdout {
-        codec => rubydebug
-      }
+      # stdout {
+      #   codec => rubydebug
+      # }
     }
 
 ---
@@ -418,7 +471,6 @@ spec:
       hostname: logstash
       containers:
       - name: logstash
-        imagePullPolicy: Always
         image: venkatsaijanumpally/logstash:latest
         ports:
         - containerPort: 5044
@@ -513,6 +565,9 @@ spec:
           volumeMounts:
             - name: ingestdata-volume
               mountPath: /opt/Ingestdata
+            - name: chunk-volume
+              mountPath: /data
+            
           env:
             - name: KAFKA_BOOTSTRAP_SERVER
               value: "kafka-service.default.svc.cluster.local"
@@ -521,21 +576,22 @@ spec:
             - name: KAFKA_TOPIC
               value: "first_topic"
             - name: DATASET_FILE
-              value: "part-01-test"
+              value: "part-01"
+            - name: "FILE_RANGE"
+              value: "6"
           resources: 
             limits:
-              memory: "300Mi"
-              cpu: "300m"
+              memory: "2Gi"
+              cpu: "1000m"
       volumes:
       - name: ingestdata-volume
-        hostPath:
-          path: "/Ingestdata"
-          type: Directory
+        persistentVolumeClaim:
+          claimName: efs-pvc
+      - name: chunk-volume
+        emptyDir:
+          sizeLimit: 8000Mi
       initContainers:
-      - name: wait-for-elasticsearch-busybox
-        image: busybox:1.32
-        command: ["sh", "-c", "until nc -z elasticsearch-service 9200 > /dev/null; do echo Waiting for elasticsearch.; sleep 2; done;"]
-      - name: wait-for-logstash-busybox
-        image: busybox:1.32
-        #command: ['sh', '-c', 'until nslookup logstash-service.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for logstash-service; sleep 2; done;']
-        command: ["sh", "-c", "until nc -z logstash-service 9600 > /dev/null; do echo Waiting for logstash.; sleep 2; done;"]
+        - name: wait-for-logstash-busybox
+          image: busybox:1.32
+          #command: ['sh', '-c', 'until nslookup logstash-service.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for logstash-service; sleep 2; done;']
+          command: ["sh", "-c", "until nc -z logstash-service 9600 > /dev/null; do echo Waiting for logstash.; sleep 2; done;"]

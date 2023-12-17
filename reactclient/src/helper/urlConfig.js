@@ -1,1 +1,1 @@
-export const api = "http://localhost:2000/api";
+export const api = "http://django-service.default.svc.cluster.local:8000";

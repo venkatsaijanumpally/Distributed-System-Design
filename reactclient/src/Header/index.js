@@ -7,7 +7,7 @@ const Header = (props) => {
   const getData = async () => {
     await axios
       .get(
-        `http://a1ee104f42b43436c9295211d2f68523-416343305.us-west-1.elb.amazonaws.com:8000/reviews/review/raeldor-96879/`
+        `http://a88fe0623e7854b89881768bfc09355e-1579644646.us-west-1.elb.amazonaws.com:8000/reviews/review/raeldor-96879/`
       )
       .then(
         (response) => {
