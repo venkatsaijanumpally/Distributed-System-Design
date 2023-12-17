@@ -3,25 +3,19 @@ import axios from "../helper/axios";
 
 const Header = (props) => {
   const [elasticData, setElasticData] = useState("");
+  const [reviewerName, setReviewerName] = useState("");
 
   const getData = async () => {
-    await axios
-      .get(
-        `http://a1ee104f42b43436c9295211d2f68523-416343305.us-west-1.elb.amazonaws.com:8000/reviews/review/raeldor-96879/`
-      )
-      .then(
-        (response) => {
-          console.log(response.data.reviews);
-          setElasticData(response.data.reviews);
-        },
-        (error) => {
-          console.log(error);
-        }
-      );
+    await axios.get(`/reviews/review/${reviewerName}/`).then(
+      (response) => {
+        console.log(response.data.reviews);
+        setElasticData(response.data.reviews);
+      },
+      (error) => {
+        console.log(error);
+      }
+    );
   };
-  useEffect(() => {
-    getData();
-  }, []);
 
   return (
     <div>
@@ -34,6 +28,27 @@ const Header = (props) => {
         }}>
         <h1>Distributed Systems</h1>
       </header>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          margin: "20px",
+          textAlign: "center",
+        }}>
+        <label style={{ marginRight: "10px" }}>Search :</label>
+        <input
+          type='text'
+          placeholder='Enter reviewer name...'
+          value={reviewerName}
+          onChange={(e) => setReviewerName(e.target.value)}
+          style={{ padding: "8px", marginRight: "10px" }}
+        />
+        <button onClick={getData} style={{ padding: "8px" }}>
+          Submit
+        </button>
+      </div>
 
       {/* Table */}
       <div style={{ margin: "20px" }}>
