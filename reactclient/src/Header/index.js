@@ -22,38 +22,41 @@ const Header = (props) => {
       {/* Header */}
       <header
         style={{
-          backgroundColor: "#f0f0f0",
+          backgroundColor: "rgb(0 0 0 / 77%)",
           padding: "10px",
           textAlign: "center",
+          display: "flex",
+          alignItems: "center",
         }}>
-        <h1>Distributed Systems</h1>
+        <h1
+          style={{
+            background:
+              "linear-gradient(to right, violet, indigo, blue, green, yellow, orange, red)",
+            WebkitBackgroundClip: "text",
+            color: "transparent",
+          }}>
+          Critique Quest
+        </h1>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          {/* <label style={{ marginRight: "10px" }}>Search :</label> */}
+          <input
+            type='text'
+            placeholder='Enter reviewer name...'
+            value={reviewerName}
+            onChange={(e) => setReviewerName(e.target.value)}
+            style={{ padding: "8px", marginRight: "10px", marginLeft: "10px" }}
+            size={160}
+          />
+          <button onClick={getData} style={{ padding: "8px" }}>
+            Search
+          </button>
+        </div>
       </header>
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          margin: "20px",
-          textAlign: "center",
-        }}>
-        <label style={{ marginRight: "10px" }}>Search :</label>
-        <input
-          type='text'
-          placeholder='Enter reviewer name...'
-          value={reviewerName}
-          onChange={(e) => setReviewerName(e.target.value)}
-          style={{ padding: "8px", marginRight: "10px" }}
-        />
-        <button onClick={getData} style={{ padding: "8px" }}>
-          Submit
-        </button>
-      </div>
-
       {/* Table */}
-      <div style={{ margin: "20px" }}>
+      <div style={{ margin: "10px" }}>
         <table style={{ borderCollapse: "collapse", width: "100%" }}>
-          <thead>
+          <thead style={{ background: "#5dc65c" }}>
             <tr>
               <th style={{ border: "1px solid #ddd", padding: "8px" }}>
                 Movie
@@ -78,7 +81,7 @@ const Header = (props) => {
           <tbody>
             {elasticData &&
               elasticData.map((row) => (
-                <tr key={row.id}>
+                <tr key={row.id} style={{ background: "#d3c8af" }}>
                   <td style={{ border: "1px solid #ddd", padding: "8px" }}>
                     {row._source.movie}
                   </td>
