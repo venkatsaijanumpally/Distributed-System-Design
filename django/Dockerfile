@@ -15,6 +15,9 @@ COPY ./requirements.txt .
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+RUN pip install django-cors-headers
+RUN pip install djangorestframework
+
 # Copy the application code into the container
 COPY ./django_project /app/django_project
 COPY ./entryscript.sh /app/entryscript.sh

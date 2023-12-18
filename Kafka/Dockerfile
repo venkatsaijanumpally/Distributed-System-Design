@@ -28,9 +28,10 @@ ENV PATH $PATH:$KAFKA_HOME/bin
 
 # Create required directories
 RUN mkdir -p $KAFKA_HOME/data/zookeeper $KAFKA_HOME/data/kafka $KAFKA_HOME/data/Ingestdata $KAFKA_HOME/data/Producer
+#RUN mkdir $KAFKA_HOME/data/kafka/server0 $KAFKA_HOME/data/kafka/server1 $KAFKA_HOME/data/kafka/test
 
 # Expose Kafka ports
-EXPOSE 9092 9093
+EXPOSE 9092 9093 9094 9095
 
 # Copy the entryscript.sh file into the image
 COPY ./entryscript.sh /opt/kafka_2.12-3.6.0/entryscript.sh

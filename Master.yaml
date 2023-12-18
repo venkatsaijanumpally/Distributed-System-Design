@@ -1,75 +1,22 @@
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: react-deployment
+  name: django-react-deployment
 spec:
   replicas: 1
   selector:
     matchLabels:
-      component: react-app
+      component: django-react-app
       zone: application
       tier: backend
   template:
     metadata:
       labels:
-        component: react-app
+        component: django-react-app
         zone: application
         tier: backend
     spec:
-      hostname: react
-      initContainers:
-          - name: wait-for-django
-            image: busybox:1.32
-            command: ['sh', '-c', 'until nc -z django-service 8000 > /dev/null; do echo "Waiting for django"; sleep 5; done;']
-      containers:
-      - name: react
-        imagePullPolicy: Always
-        image: venkatsaijanumpally/react:latest
-        ports:
-        - containerPort: 3000
-        resources:
-          limits:
-            memory: "400Mi"
-            cpu: "300m"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: react-service
-spec:
-  selector:
-    component: react-app
-    zone: application
-    tier: backend
-  ports:
-    - protocol: TCP
-      port: 3000
-      targetPort: 3000
-  type: LoadBalancer
-
-
-
----
-
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: django-deployment
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      component: django-app
-      zone: application
-      tier: backend
-  template:
-    metadata:
-      labels:
-        component: django-app
-        zone: application
-        tier: backend
-    spec:
-      hostname: django
       initContainers:
           - name: wait-for-elasticsearch
             image: busybox:1.32
@@ -91,31 +38,66 @@ spec:
           limits:
             memory: "300Mi"
             cpu: "200m"
+      - name: react
+        imagePullPolicy: Always
+        image: venkatsaijanumpally/react:latest
+        ports:
+        - containerPort: 3000
+        resources:
+          limits:
+            memory: "400Mi"
+            cpu: "300m"
+
 ---
+
 apiVersion: v1
 kind: Service
 metadata:
-  name: django-service
+  name: django-react-service
 spec:
   selector:
-    component: django-app
+    component: django-react-app
     zone: application
     tier: backend
   ports:
-    - protocol: TCP
+    - name: djangoport
+      protocol: TCP
       port: 8000
       targetPort: 8000
+    - name: reactport
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
   type: LoadBalancer
 
 
 ---
 
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Service
 metadata:
-  name: elasticsearch-deployment
+  name: elasticsearch
 spec:
-  replicas: 1
+  selector:
+    component: elasticsearch-app
+    tier: backend
+    zone: elasticsearch
+  clusterIP: None
+  ports:
+    - port: 9200
+      name: rest
+    - port: 9300
+      name: inter-node
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+spec:
+  serviceName: elasticsearch
+  replicas: 2
   selector:
     matchLabels:
       component: elasticsearch-app
@@ -128,7 +110,15 @@ spec:
         tier: backend
         zone: elasticsearch
     spec:
-      hostname: elasticsearch
+      initContainers:
+      - name: fix-permissions
+        image: busybox
+        command: ["sh", "-c", "chown -R 1000:1000 /usr/share/elasticsearch/data"]
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: elasticsearch-data
+          mountPath: /usr/share/elasticsearch/data
       containers:
         - name: elasticsearch
           image: docker.elastic.co/elasticsearch/elasticsearch:7.10.1
@@ -136,18 +126,33 @@ spec:
             - containerPort: 9200
             - containerPort: 9300
           env:
-            - name: discovery.type
-              value: single-node
+            - name: SERVICENAME
+              value: elasticsearch
             - name: ES_JAVA_OPTS
               value: "-Xmx512m -Xms512m"
             - name: node.name
-              value: es01
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: cluster.name
-              value: elasticsearch
+              value: "elasticsearch"
+            - name: discovery.seed_hosts
+              value: "elasticsearch-0.elasticsearch,elasticsearch-1.elasticsearch"
+            - name: cluster.initial_master_nodes
+              value: "elasticsearch-0,elasticsearch-1"
+          volumeMounts:
+            - name: elasticsearch-data
+              mountPath: /usr/share/elasticsearch/data
           resources:
             limits:
               memory: "1Gi"
               cpu: "600m"
+      volumes:
+        # - name: elasticsearch-data
+        #   persistentVolumeClaim:
+        #       claimName: elasticsearch-pvc
+        - name: elasticsearch-data
+          emptyDir: {}
 
 ---
 

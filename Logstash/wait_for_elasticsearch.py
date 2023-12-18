@@ -38,7 +38,14 @@ def create_index():
         }
     }
 
-    response = requests.put(url)
+    index_settings = {
+        "settings": {
+            "number_of_shards": 2,
+            "number_of_replicas": 1
+        }
+    }
+
+    response = requests.put(url, json=index_settings)
     response.raise_for_status()
     print("Index 'reviews' created successfully!")
 
